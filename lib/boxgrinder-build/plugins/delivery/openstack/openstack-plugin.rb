@@ -26,8 +26,10 @@ module BoxGrinder
     plugin :type => :delivery, :name => :openstack, :full_name  => "OpenStack"
 
     def after_init
-      set_default_config_value('host', 'localhost')
-      set_default_config_value('port', '9292')
+      set_default_config_value('compute_host', 'localhost')
+      set_default_config_value('glance_host', 'localhost')
+      set_default_config_value('compute_port', '5000')
+      set_default_config_value('glance_port', '9292')
       set_default_config_value('schema', 'http')
       set_default_config_value('overwrite', false)
       set_default_config_value('public', false)
@@ -43,7 +45,9 @@ module BoxGrinder
     def execute
       token = nil
       if @plugin_config.has_key?('tenant_id') and @plugin_config.has_key?('user') and @plugin_config.has_key?('password')
+        @log.info "Requesting access token from OpenStack API..."
         token = retrieve_token(@plugin_config['tenant_id'], @plugin_config['user'], @plugin_config['password'])
+        @log.info "Got request token ID #{token}"
       end
 
       @log.debug "Checking if '#{@appliance_name}' appliance is already registered..."
@@ -102,7 +106,7 @@ module BoxGrinder
 
 
       if options[:token].nil?
-        image = JSON.parse(RestClient.post("#{url}/v1/images",
+        image = JSON.parse(RestClient.post("#{glance_url}/v1/images",
           File.new(@previous_deliverables.disk, 'rb'),
           :content_type => 'application/octet-stream',
           'x-image-meta-size' => file_size,
@@ -113,7 +117,7 @@ module BoxGrinder
           'x-image-meta-property-distro' => "#{@appliance_config.os.name.capitalize} #{@appliance_config.os.version}"
         ))['image']
       else
-        image = JSON.parse(RestClient.post("#{url}/v1/images",
+        image = JSON.parse(RestClient.post("#{glance_url}/v1/images",
           File.new(@previous_deliverables.disk, 'rb'),
           :content_type => 'application/octet-stream',
           'x-image-meta-size' => file_size,
@@ -133,33 +137,37 @@ module BoxGrinder
     def delete_image(id, token=nil)
       @log.trace "Removing image with id = #{id}..."
       if token.nil?
-        RestClient.delete("#{url}/v1/images/#{id}")
+        RestClient.delete("#{glance_url}/v1/images/#{id}")
       else
-        RestClient.delete("#{url}/v1/images/#{id}", 'x-auth-token' => token)
+        RestClient.delete("#{glance_url}/v1/images/#{id}", 'x-auth-token' => token)
       end
       @log.trace "Image removed."
     end
 
     # Retrieves a list of public images with specified filter. If no filter is specified - all images are returned.
     #
-    def get_images(params = {}, token=nil)
+    def get_images(params = {})
       @log.trace "Listing images with params = #{params.to_json}..."
-      if token.nil?
-        data = JSON.parse(RestClient.get("#{url}/v1/images", :params => params))['images']
+      if params[:token].nil?
+        data = JSON.parse(RestClient.get("#{glance_url}/v1/images", :params => params))['images']
       else
-        data = JSON.parse(RestClient.get("#{url}/v1/images", :params => params, 'x-auth-token' => token))['images']
+        data = JSON.parse(RestClient.get("#{glance_url}/v1/images", :params => params, 'x-auth-token' => params[:token]))['images']
       end
       @log.trace "Listing done."
       data
     end
 
-    def url
-      "#{@plugin_config['schema']}://#{@plugin_config['host']}:#{@plugin_config['port']}"
+    def compute_url
+      "#{@plugin_config['schema']}://#{@plugin_config['compute_host']}:#{@plugin_config['compute_port']}"
+    end
+
+    def glance_url
+      "#{@plugin_config['schema']}://#{@plugin_config['compute_host']}:#{@plugin_config['glance_port']}"
     end
 
     def retrieve_token(tenant_id, user, password)
       request_data = JSON.dump({'auth' => {'passwordCredentials' => {'username' => user,'password' => password},'tenantId' => tenant_id}})
-      response = RestClient.post("#{url}/v2.0/tokens", request_data, :content_type => :json)
+      response = RestClient.post("#{compute_url}/v2.0/tokens", request_data, :content_type => 'application/json', :accept => 'application/json')
       if response.code == 200
         result = JSON.parse(response.to_str)
         return result['access']['token']['id']
