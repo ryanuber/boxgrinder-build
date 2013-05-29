@@ -154,7 +154,6 @@ module BoxGrinder
     end
 
     def url
-      File.open('/tmp/test.txt', 'w').write(@plugin_config['blah'])
       "#{@plugin_config['schema']}://#{@plugin_config['host']}:#{@plugin_config['port']}"
     end
 
