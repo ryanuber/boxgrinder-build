@@ -41,8 +41,13 @@ module BoxGrinder
     end
 
     def execute
+      token = nil
+      if @plugin_config.has_key?('tenant_id') and @plugin_config.has_key?('user') and @plugin_config.has_key?('password')
+        token = retrieve_token(@plugin_config['tenant_id'], @plugin_config['user'], @plugin_config['password'])
+      end
+
       @log.debug "Checking if '#{@appliance_name}' appliance is already registered..."
-      images = get_images(:name => @appliance_name)
+      images = get_images(:name => @appliance_name, :token => token)
 
       unless images.empty?
         @log.debug "We found one or more appliances with the name '#{@appliance_name}'."
@@ -53,13 +58,13 @@ module BoxGrinder
         end
 
         @log.info "Removing all images with name '#{@appliance_name}' because 'overwrite' parameter is set to true..."
-        images.each {|i| delete_image(i['id']) }
+        images.each {|i| delete_image(i['id'], :token => token) }
         @log.info "Images removed."
       end
 
       disk_format, container_format = disk_and_container_format
 
-      post_image(:disk_format => disk_format, :container_format => container_format, :public => @plugin_config['public'])
+      post_image(:disk_format => disk_format, :container_format => container_format, :public => @plugin_config['public'], :token => token)
     end
 
     def disk_and_container_format
@@ -85,7 +90,8 @@ module BoxGrinder
       options = {
           :disk_format => :raw, # raw, vhd, vmdk, vdi, qcow2, aki, ari, ami
           :container_format => :bare, # ovf, bare, aki, ari, ami
-          :public => true
+          :public => true,
+          :token => nil
       }.merge(options)
 
       @log.info "Uploading and registering '#{@appliance_name}' appliance in OpenStack..."
@@ -94,40 +100,72 @@ module BoxGrinder
 
       @log.trace "Disk format: #{options[:disk_format]}, container format: #{options[:container_format]}, public: #{options[:public]}, size: #{file_size}."
 
-      image = JSON.parse(RestClient.post("#{url}/v1/images",
-        File.new(@previous_deliverables.disk, 'rb'),
-        :content_type => 'application/octet-stream',
-        'x-image-meta-size' => file_size,
-        'x-image-meta-name' => @appliance_name,
-        'x-image-meta-disk-format' => options[:disk_format],
-        'x-image-meta-container-format' => options[:container_format],
-        'x-image-meta-is-public' => options[:public] ? "true" : false,
-        'x-image-meta-property-distro' => "#{@appliance_config.os.name.capitalize} #{@appliance_config.os.version}"
-      ))['image']
 
+      if options[:token].nil?
+        image = JSON.parse(RestClient.post("#{url}/v1/images",
+          File.new(@previous_deliverables.disk, 'rb'),
+          :content_type => 'application/octet-stream',
+          'x-image-meta-size' => file_size,
+          'x-image-meta-name' => @appliance_name,
+          'x-image-meta-disk-format' => options[:disk_format],
+          'x-image-meta-container-format' => options[:container_format],
+          'x-image-meta-is-public' => options[:public] ? "true" : false,
+          'x-image-meta-property-distro' => "#{@appliance_config.os.name.capitalize} #{@appliance_config.os.version}"
+        ))['image']
+      else
+        image = JSON.parse(RestClient.post("#{url}/v1/images",
+          File.new(@previous_deliverables.disk, 'rb'),
+          :content_type => 'application/octet-stream',
+          'x-image-meta-size' => file_size,
+          'x-image-meta-name' => @appliance_name,
+          'x-image-meta-disk-format' => options[:disk_format],
+          'x-image-meta-container-format' => options[:container_format],
+          'x-image-meta-is-public' => options[:public] ? "true" : false,
+          'x-image-meta-property-distro' => "#{@appliance_config.os.name.capitalize} #{@appliance_config.os.version}",
+          'x-auth-token' => options[:token]
+        ))['image']
+      end
       @log.info "Appliance registered under id = #{image['id']}."
     end
 
     # Removes image from the server for specified id.
     #
-    def delete_image(id)
+    def delete_image(id, token=nil)
       @log.trace "Removing image with id = #{id}..."
-      RestClient.delete("#{url}/v1/images/#{id}")
+      if token.nil?
+        RestClient.delete("#{url}/v1/images/#{id}")
+      else
+        RestClient.delete("#{url}/v1/images/#{id}", 'x-auth-token' => token)
+      end
       @log.trace "Image removed."
     end
 
     # Retrieves a list of public images with specified filter. If no filter is specified - all images are returned.
     #
-    def get_images(params = {})
+    def get_images(params = {}, token=nil)
       @log.trace "Listing images with params = #{params.to_json}..."
-      data = JSON.parse(RestClient.get("#{url}/v1/images", :params => params))['images']
+      if token.nil?
+        data = JSON.parse(RestClient.get("#{url}/v1/images", :params => params))['images']
+      else
+        data = JSON.parse(RestClient.get("#{url}/v1/images", :params => params, 'x-auth-token' => token))['images']
+      end
       @log.trace "Listing done."
       data
     end
 
     def url
+      File.open('/tmp/test.txt', 'w').write(@plugin_config['blah'])
       "#{@plugin_config['schema']}://#{@plugin_config['host']}:#{@plugin_config['port']}"
     end
+
+    def retrieve_token(tenant_id, user, password)
+      request_data = JSON.dump({'auth' => {'passwordCredentials' => {'username' => user,'password' => password},'tenantId' => tenant_id}})
+      response = RestClient.post("#{url}/v2.0/tokens", request_data, :content_type => :json)
+      if response.code == 200
+        result = JSON.parse(response.to_str)
+        return result['access']['token']['id']
+      end
+    end
+
   end
 end
-
