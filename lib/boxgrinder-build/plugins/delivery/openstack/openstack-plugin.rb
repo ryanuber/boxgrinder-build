@@ -45,9 +45,9 @@ module BoxGrinder
     def execute
       token = nil
       if @plugin_config.has_key?('tenant_id') and @plugin_config.has_key?('user') and @plugin_config.has_key?('password')
-        @log.info "Requesting access token from OpenStack API..."
         token = retrieve_token(@plugin_config['tenant_id'], @plugin_config['user'], @plugin_config['password'])
-        @log.info "Got request token ID #{token}"
+      else
+        @log.debug 'Skipped token authentication because user, password, and tenant_id were not set'
       end
 
       @log.debug "Checking if '#{@appliance_name}' appliance is already registered..."
@@ -147,7 +147,7 @@ module BoxGrinder
     # Retrieves a list of public images with specified filter. If no filter is specified - all images are returned.
     #
     def get_images(params = {})
-      @log.trace "Listing images with params = #{params.to_json}..."
+      @log.trace "Listing images with params = #{params.reject { |k,v| k == :token }.to_json}..."
       if params[:token].nil?
         data = JSON.parse(RestClient.get("#{glance_url}/v1/images", :params => params))['images']
       else
@@ -166,7 +166,8 @@ module BoxGrinder
     end
 
     def retrieve_token(tenant_id, user, password)
-      request_data = JSON.dump({'auth' => {'passwordCredentials' => {'username' => user,'password' => password},'tenantId' => tenant_id}})
+      @log.info "Requesting access token from OpenStack API..."
+      request_data = {'auth' => {'passwordCredentials' => {'username' => user,'password' => password},'tenantId' => tenant_id}}.to_json
       response = RestClient.post("#{compute_url}/v2.0/tokens", request_data, :content_type => 'application/json', :accept => 'application/json')
       if response.code == 200
         result = JSON.parse(response.to_str)
