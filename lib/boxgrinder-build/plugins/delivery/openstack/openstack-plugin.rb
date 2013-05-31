@@ -158,11 +158,11 @@ module BoxGrinder
     end
 
     def nova_url
-      "#{@plugin_config['schema']}://#{@plugin_config['nova_host']}:#{@plugin_config['compute_port']}"
+      "#{@plugin_config['schema']}://#{@plugin_config['nova_host']}:#{@plugin_config['nova_port']}"
     end
 
     def glance_url
-      "#{@plugin_config['schema']}://#{@plugin_config['nova_host']}:#{@plugin_config['glance_port']}"
+      "#{@plugin_config['schema']}://#{@plugin_config['glance_host']}:#{@plugin_config['glance_port']}"
     end
 
     def retrieve_token(tenant_id, user, password)
