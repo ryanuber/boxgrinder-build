@@ -26,9 +26,9 @@ module BoxGrinder
     plugin :type => :delivery, :name => :openstack, :full_name  => "OpenStack"
 
     def after_init
-      set_default_config_value('compute_host', 'localhost')
+      set_default_config_value('nova_host', 'localhost')
       set_default_config_value('glance_host', 'localhost')
-      set_default_config_value('compute_port', '5000')
+      set_default_config_value('nova_port', '5000')
       set_default_config_value('glance_port', '9292')
       set_default_config_value('schema', 'http')
       set_default_config_value('overwrite', false)
@@ -157,18 +157,18 @@ module BoxGrinder
       data
     end
 
-    def compute_url
-      "#{@plugin_config['schema']}://#{@plugin_config['compute_host']}:#{@plugin_config['compute_port']}"
+    def nova_url
+      "#{@plugin_config['schema']}://#{@plugin_config['nova_host']}:#{@plugin_config['compute_port']}"
     end
 
     def glance_url
-      "#{@plugin_config['schema']}://#{@plugin_config['compute_host']}:#{@plugin_config['glance_port']}"
+      "#{@plugin_config['schema']}://#{@plugin_config['nova_host']}:#{@plugin_config['glance_port']}"
     end
 
     def retrieve_token(tenant_id, user, password)
-      @log.info "Requesting access token from OpenStack API..."
+      @log.info "Requesting access token from OpenStack..."
       request_data = {'auth' => {'passwordCredentials' => {'username' => user,'password' => password},'tenantId' => tenant_id}}.to_json
-      response = RestClient.post("#{compute_url}/v2.0/tokens", request_data, :content_type => 'application/json', :accept => 'application/json')
+      response = RestClient.post("#{nova_url}/v2.0/tokens", request_data, :content_type => 'application/json', :accept => 'application/json')
       if response.code == 200
         result = JSON.parse(response.to_str)
         return result['access']['token']['id']
