@@ -133,7 +133,7 @@ module BoxGrinder
 
     def read_bytes_from_file(file, bytes)
       read = 0
-      File.open(file) do |f|
+      File.open(file, 'rb') do |f|
         while (buf = f.read(1)) and bytes > read
           read += 1
           yield buf
