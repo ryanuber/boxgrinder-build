@@ -97,7 +97,7 @@ module BoxGrinder
       @log.trace "Disk format: #{options[:disk_format]}, container format: #{options[:container_format]}, public: #{options[:public]}, size: #{file_size}."
 
       image = JSON.parse(RestClient.post("#{url}/v1/images",
-        File.new(@previous_deliverables.disk, 'rb'),
+        read_bytes_from_file(@previous_deliverables.disk, file_size),
         :content_type => 'application/octet-stream',
         'x-image-meta-size' => file_size,
         'x-image-meta-name' => @appliance_name,
@@ -129,6 +129,16 @@ module BoxGrinder
 
     def url
       "#{@plugin_config['schema']}://#{@plugin_config['host']}:#{@plugin_config['port']}"
+    end
+
+    def read_bytes_from_file(file, bytes)
+      read = 0
+      File.open(file) do |f|
+        while (buf = f.read(1)) and bytes > read
+          read += 1
+          yield buf
+        end
+      end
     end
   end
 end
