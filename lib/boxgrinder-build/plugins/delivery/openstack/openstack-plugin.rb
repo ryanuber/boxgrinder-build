@@ -90,7 +90,9 @@ module BoxGrinder
 
       @log.info "Uploading and registering '#{@appliance_name}' appliance in OpenStack..."
 
-      file_size = File.size(@previous_deliverables.disk)
+      # Disk images are potentially sparse - so calculate actual block storage, otherwise
+      # the full image size is sent as x-image-meta-size which can be huge. 
+      file_size = File.stat(@previous_deliverables.disk).blocks * 512
 
       @log.trace "Disk format: #{options[:disk_format]}, container format: #{options[:container_format]}, public: #{options[:public]}, size: #{file_size}."
 
