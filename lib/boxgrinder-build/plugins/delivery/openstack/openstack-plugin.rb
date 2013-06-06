@@ -81,16 +81,6 @@ module BoxGrinder
       [disk_format, container_format]
     end
 
-    def read_bytes_from_file(file, bytes)
-      read = 0
-      File.open(file, 'rb') do |f|
-        while (buf = f.read(1)) and bytes > read
-          read += 1
-          yield buf
-        end
-      end
-    end
-
     def post_image(options = {})
       options = {
           :disk_format => :raw, # raw, vhd, vmdk, vdi, qcow2, aki, ari, ami
@@ -139,6 +129,16 @@ module BoxGrinder
 
     def url
       "#{@plugin_config['schema']}://#{@plugin_config['host']}:#{@plugin_config['port']}"
+    end
+
+    def read_bytes_from_file(file, bytes)
+      read = 0
+      File.open(file, 'rb') do |f|
+        while (buf = f.read(1)) and bytes > read
+          read += 1
+          yield buf
+        end
+      end
     end
   end
 end
