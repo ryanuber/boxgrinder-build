@@ -39,7 +39,7 @@ module BoxGrinder
       register_supported_platform(:virtualbox)
 
       @disk_format, @container_format = disk_and_container_format
-      @appliance_name = "#{@appliance_config.name}-#{@appliance_config.version}"
+      @appliance_name = "#{@appliance_config.name}-#{@appliance_config.version}.#{@appliance_config.release}-#{@disk_format}"
     end
 
     def execute
