@@ -123,6 +123,18 @@ module BoxGrinder
       end
     end
 
+    def dump_appliance_logs()
+      numlines = 50
+      if @plugin_config.has_key?('dump-appliance-logs') and @plugin_config['dump-appliance-logs'].kind_of?(Fixnum):
+        numlines = @plugin_config['dump-appliance-logs']
+      end
+      @log.debug "Dumping last #{numlines} lines of appliance-creator logs..."
+      File.readlines("#{@dir.tmp}/log.txt").reverse.take(numlines).reverse do |line|
+        @log.debug "appliance-creator: #{line}"
+      end
+      @log.debug "End of appliance-creator logs"
+    end
+
     # https://issues.jboss.org/browse/BGBUILD-148
     def recreate_rpm_database(guestfs, guestfs_helper)
       @log.debug "Recreating RPM database..."
@@ -144,11 +156,7 @@ module BoxGrinder
       @log.debug "Waiting for process to be terminated..."
       Process.wait(pid)
 
-      @log.debug "Dumping last 50 lines of appliance-creator logs..."
-      File.readlines("#{@dir.tmp}/log.txt").reverse.take(50).reverse do |line|
-        @log.debug "appliance-creator: #{line}"
-      end
-      @log.debug "End of appliance-creator logs"
+      dump_appliance_logs
 
       @log.debug "Cleaning appliance-creator mount points..."
 
