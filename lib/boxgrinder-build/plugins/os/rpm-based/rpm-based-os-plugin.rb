@@ -125,7 +125,7 @@ module BoxGrinder
 
     def dump_appliance_logs()
       numlines = 50
-      if @plugin_config.has_key?('dump-appliance-logs') and @plugin_config['dump-appliance-logs'].kind_of?(Fixnum):
+      if @plugin_config.has_key?('dump-appliance-logs') and @plugin_config['dump-appliance-logs'].kind_of?(Fixnum)
         numlines = @plugin_config['dump-appliance-logs']
       end
       @log.debug "Dumping last #{numlines} lines of appliance-creator logs..."
