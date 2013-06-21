@@ -104,7 +104,7 @@ module BoxGrinder
 
     def execute_appliance_creator(kickstart_file)
       begin
-        @exec_helper.execute "appliance-creator -d -v -t '#{@dir.tmp}' --cache=#{@config.dir.cache}/rpms-cache/#{@appliance_config.path.main} --config '#{kickstart_file}' -o '#{@dir.tmp}' --name '#{@appliance_config.name}' --vmem #{@appliance_config.hardware.memory} --vcpu #{@appliance_config.hardware.cpus} --format #{@plugin_config['format']}"
+        @exec_helper.execute "appliance-creator -d -v -t '#{@dir.tmp}' --cache=#{@config.dir.cache}/rpms-cache/#{@appliance_config.path.main} --config '#{kickstart_file}' -o '#{@dir.tmp}' --name '#{@appliance_config.name}' --vmem #{@appliance_config.hardware.memory} --vcpu #{@appliance_config.hardware.cpus} --format #{@plugin_config['format']} | tee -a #{@dir.tmp}/log.txt"
       rescue InterruptionError => e
         cleanup_after_appliance_creator(e.pid)
         abort
@@ -143,6 +143,12 @@ module BoxGrinder
 
       @log.debug "Waiting for process to be terminated..."
       Process.wait(pid)
+
+      @log.debug "Dumping last 50 lines of appliance-creator logs..."
+      File.readlines("#{@dir.tmp}/log.txt").reverse.take(50).reverse do |line|
+        @log.debug "appliance-creator: #{line}"
+      end
+      @log.debug "End of appliance-creator logs"
 
       @log.debug "Cleaning appliance-creator mount points..."
 
